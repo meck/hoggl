@@ -15,6 +15,8 @@ module Network.Hoggl.Types (TimeEntryId(..)
                            ,Project(..)
                            ,ProjectId(..)
                            ,DetailedReport(..)
+                           ,TogglClient(..)
+                           ,ClientId(..)
                            ,TogglApi
                            ,ToggleReportApi
 
@@ -40,6 +42,7 @@ import           Servant.Client
 
 newtype TimeEntryId = TID Integer deriving (Show,Eq,FromJSON,ToHttpApiData)
 newtype WorkspaceId = WID Integer deriving (Show,Eq,FromJSON,ToHttpApiData)
+newtype ClientId = CID Integer deriving (Show,Eq,FromJSON,ToHttpApiData)
 newtype ProjectId = PID Integer deriving (Show,Eq,FromJSON,ToHttpApiData)
 newtype ApiToken = ApiToken String deriving (IsString)
 newtype ISO6801 = ISO6801 UTCTime deriving (Show,Eq,Ord)
@@ -154,6 +157,7 @@ instance FromJSON Workspace where
 
 data Project = Project { prId :: ProjectId
                        , prWsId :: WorkspaceId
+                       , prCid :: Maybe ClientId
                        , prName :: Text
                        , prBillable :: Bool
                        , prPrivate :: Bool
@@ -164,12 +168,31 @@ data Project = Project { prId :: ProjectId
 instance FromJSON Project where
   parseJSON (Object o) = Project <$> o .: "id"
                                  <*> o .: "wid"
+                                 <*> o .:?? "cid"
                                  <*> o .: "name"
                                  <*> o .: "billable"
                                  <*> o .: "is_private"
                                  <*> o .: "active"
                                  <*> o .: "at"
   parseJSON _ = mzero
+
+data TogglClient = TogglClient { clId :: ClientId
+                               , clName :: Text
+                               , clWsId :: WorkspaceId
+                               , clNotes :: Maybe Text
+                               , clAt :: ISO6801
+                               } deriving (Show,Eq)
+
+instance FromJSON TogglClient where
+  parseJSON v@(Object o) = ((o .: "data") >>= p) <|> p v
+    where p (Object d) = TogglClient <$> d .: "id"
+                                     <*> d .: "name"
+                                     <*> d .: "wid"
+                                     <*> d .:?? "notes"
+                                     <*> d .: "at"
+          p _ = mzero
+  parseJSON _ = mzero
+
 
 data DetailedReport = DetailedReport {drPerPage :: Int
                                      ,drTotalCount :: Int
@@ -195,8 +218,17 @@ type Details =        WithAuth ("time_entries" :> Capture "time_entry_id" TimeEn
 type GetEntries =     WithAuth ("time_entries" :> QueryParam "start_date" ISO6801 :> QueryParam "end_date" ISO6801 :> Get '[JSON] [TimeEntry])
 type ListWorkspaces = WithAuth ("workspaces" :> Get '[JSON] [Workspace])
 type ListProjects =   WithAuth ("workspaces" :> Capture "workspace_id" WorkspaceId :> "projects" :> Get '[JSON] [Project])
+type ListClients =    WithAuth ("clients" :> Get '[JSON] [TogglClient])
 
-type TogglApi = Current :<|> Stop :<|> Start :<|> Details :<|> GetEntries :<|> ListWorkspaces :<|> ListProjects
+type TogglApi =
+  Current
+    :<|> Stop
+    :<|> Start
+    :<|> Details
+    :<|> GetEntries
+    :<|> ListWorkspaces
+    :<|> ListProjects
+    :<|> ListClients
 
 type GetDetailedReport = "reports" :> "api" :> "v2" :> "details" :> Header "Authorization" Token :> QueryParam "workspace_id" WorkspaceId :> QueryParam "since" ISO6801Date :> QueryParam "until" ISO6801Date :> QueryParam "user_agent" Text :> Get '[JSON] DetailedReport
 

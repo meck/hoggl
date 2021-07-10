@@ -6,6 +6,7 @@ module Network.Hoggl (currentTimeEntry
                      ,getEntries
                      ,listWorkspaces
                      ,listProjects
+                     ,listClients
                      ,detailedReport
 
                      ,tryStartDefault
@@ -49,8 +50,16 @@ getTimer' :: Maybe Token -> TimeEntryId -> ClientM TimeEntry
 getEntries' :: Maybe Token -> Maybe ISO6801 -> Maybe ISO6801 -> ClientM [TimeEntry]
 listWorkspaces' :: Maybe Token -> ClientM [Workspace]
 listProjects' :: Maybe Token -> WorkspaceId -> ClientM [Project]
-(currentTimeEntry' :<|> stopTimer' :<|> startTimer' :<|> getTimer' :<|> getEntries' :<|> listWorkspaces' :<|> listProjects') =
-  client togglApi
+listClients' :: Maybe Token -> ClientM [TogglClient]
+( currentTimeEntry'
+    :<|> stopTimer'
+    :<|> startTimer'
+    :<|> getTimer'
+    :<|> getEntries'
+    :<|> listWorkspaces'
+    :<|> listProjects'
+    :<|> listClients'
+  ) = client togglApi
 
 currentTimeEntry :: Token -> ClientM (Maybe TimeEntry)
 currentTimeEntry token = (Just <$> currentTimeEntry' (Just token)) `catchError` handler
@@ -76,6 +85,9 @@ listWorkspaces token = listWorkspaces' (Just token)
 
 listProjects :: Token -> WorkspaceId -> ClientM [Project]
 listProjects token = listProjects' (Just token)
+
+listClients :: Token -> ClientM [TogglClient]
+listClients token = listClients' (Just token)
 
 togglReportApi :: Proxy ToggleReportApi
 togglReportApi = Proxy

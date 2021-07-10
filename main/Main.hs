@@ -69,6 +69,16 @@ run (HoggleArgs auth _ StopTimer) = do
     Left _ -> die "Failed to stop timer."
     Right _ -> return ()
 
+run (HoggleArgs auth _ AllClients) = do
+  manager <- newManager tlsManagerSettings
+  let clientEnv = mkClientEnv manager togglBaseUrl
+  e <- runClientM (listClients auth) clientEnv
+  case e of
+    Left _ -> die "Failed to get clients."
+    Right clients -> do
+      putStrLn "Clients:"
+      for_ clients (T.putStrLn . clName)
+
 run (HoggleArgs auth _ Info) = do
   manager <- newManager tlsManagerSettings
   let clientEnv = mkClientEnv manager togglBaseUrl
@@ -130,6 +140,7 @@ data HoggleCmd = TimeToday
                | StartTimer
                | StopTimer
                | HowLong
+               | AllClients
                | Info
                | Report {reportSince :: String
                         ,reportUntil :: Maybe String
@@ -167,6 +178,9 @@ reportCmd = command "report" (info (Report <$> strArgument (metavar "SINCE")
                                            <*> optional (strArgument (metavar "UNTIL")))
                                    (progDesc "Request a report for the specified time range."))
 
+allClientsCmd :: Mod CommandFields HoggleCmd
+allClientsCmd = command "clients" (info (pure AllClients) (progDesc "List all clients."))
+
 infoCmd :: Mod CommandFields HoggleCmd
 infoCmd = command "info" (info (pure Info) (progDesc "Display workspaces, clients and projects"))
 
@@ -181,6 +195,7 @@ hoggleArgsParser = HoggleArgs
                            <> stopTimerCmd
                            <> howLongCmd
                            <> reportCmd
+                           <> allClientsCmd
                            <> infoCmd)
 
 die :: String -> IO ()
