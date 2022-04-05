@@ -45,6 +45,7 @@ newtype ISO6801Date = ISO6801Date Day deriving (Show,Eq,Ord)
 instance ToHttpApiData ISO6801 where
    toUrlPiece (ISO6801 t) =
      toUrlPiece . addColon $ formatTime defaultTimeLocale "%Y-%m-%dT%H%::%M:%S%z" t
+   toEncodedUrlPiece (ISO6801 t) = toEncodedUrlPiece $ toUrlPiece t
 
 addColon :: String -> String
 addColon s = reverse (p2 <> ":" <> su)
