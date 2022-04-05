@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -25,12 +24,7 @@ module Network.Hoggl.Types (TimeEntryId(..)
 import           Codec.Binary.Base64.String (encode)
 import           Control.Applicative ((<|>))
 import           Control.Monad (mzero)
-import           Control.Monad.Fail
 import           Data.Aeson (FromJSON(..), Value (..), (.:), (.:?), ToJSON(..), object, (.=), (.!=))
-import           Data.Aeson.Types (Parser)
-import qualified Data.HashMap.Strict as H
-import           Data.Hashable (Hashable)
-import           Data.Monoid ((<>))
 import           Data.String (IsString)
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -112,11 +106,11 @@ data TimeEntry = TimeEntry {teId :: TimeEntryId
 instance FromJSON TimeEntry where
   parseJSON v@(Object o) = ((o .: "data") >>= p) <|> p v
     where p (Object d) = TimeEntry <$> d .: "id"
-                                   <*> d .:?? "pid"
-                                   <*> d .:?? "project"
-                                   <*> d .:?? "client"
+                                   <*> d .:? "pid"
+                                   <*> d .:? "project"
+                                   <*> d .:? "client"
                                    <*> d .: "start"
-                                   <*> (d .: "stop" <|> d.:?? "end")
+                                   <*> (d .: "stop" <|> d.:? "end")
                                    <*> (convert <$> ((d .: "duration") <|> ((`div` 1000) <$> (d .: "dur"))))
                                    <*> d .:? "description"
                                    <*> d .:? "tags"
@@ -124,13 +118,6 @@ instance FromJSON TimeEntry where
           convert :: Integer -> NominalDiffTime
           convert = fromIntegral
   parseJSON _ = mzero
-
-(.:??) :: (FromJSON a, Hashable k, Eq k) => H.HashMap k Value -> k -> Parser (Maybe a)
-obj .:?? key = case H.lookup key obj of
-               Nothing -> pure Nothing
-               Just Null -> pure Nothing
-               Just v  -> Just <$> parseJSON v
-{-# INLINE (.:??) #-}
 
 data Workspace = Workspace {wsId :: WorkspaceId
                            ,wsName :: Text
@@ -168,7 +155,7 @@ data Project = Project { prId :: ProjectId
 instance FromJSON Project where
   parseJSON (Object o) = Project <$> o .: "id"
                                  <*> o .: "wid"
-                                 <*> o .:?? "cid"
+                                 <*> o .:? "cid"
                                  <*> o .: "name"
                                  <*> o .: "billable"
                                  <*> o .: "is_private"
@@ -188,7 +175,7 @@ instance FromJSON TogglClient where
     where p (Object d) = TogglClient <$> d .: "id"
                                      <*> d .: "name"
                                      <*> d .: "wid"
-                                     <*> d .:?? "notes"
+                                     <*> d .:? "notes"
                                      <*> d .: "at"
           p _ = mzero
   parseJSON _ = mzero
